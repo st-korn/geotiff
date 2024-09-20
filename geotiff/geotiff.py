@@ -320,14 +320,6 @@ class GeoTiff:
         x, y = self.tifTrans.get_xy(i, j)
         return self._convert_coords(self.crs_code, 4326, (x, y))
 
-    def _check_bound_in_tiff(self, shp_bBox, b_bBox):
-        check = shp_bBox[0][0] >= b_bBox[0][0]
-        check = check and (shp_bBox[1][0] <= b_bBox[1][0])
-        check = check and (shp_bBox[0][1] <= b_bBox[0][1])
-        check = check and (shp_bBox[1][1] >= b_bBox[1][1])
-        if not check:
-            raise BoundaryNotInTifError()
-
     def get_int_box(
         self, bBox: BBox, outer_points: Union[bool, int] = False
     ) -> BBoxInt:
@@ -373,28 +365,30 @@ class GeoTiff:
         j_max = self._get_y_int(y_min)
 
         if outer_points:
-            i_min_out: int = i_min - int(outer_points)
-            j_min_out: int = j_min - int(outer_points)
-            i_max_out: int = i_max + int(outer_points)
-            j_max_out: int = j_max + int(outer_points)
-            height = self.tif_shape[0]
-            width = self.tif_shape[1]
-            if (
-                i_min_out < 0
-                or j_min_out < 0
-                or i_max_out > width
-                or j_max_out > height
-            ):
-                raise BoundaryNotInTifError(
-                    "Your area_box is too close to the tif edge and cannot get the outer points"
-                )
-            return ((i_min_out, j_min_out), (i_max_out, j_max_out))
+            i_min = i_min - int(outer_points)
+            j_min = j_min - int(outer_points)
+            i_max = i_max + int(outer_points)
+            j_max = j_max + int(outer_points)
 
-        shp_bBox = [
-            self.tifTrans.get_xy(i_min, j_min),
-            self.tifTrans.get_xy(i_max, j_max),
-        ]
-        self._check_bound_in_tiff(shp_bBox, ((x_min, y_max), (x_max, y_min)))
+        height = self.tif_shape[0]
+        width = self.tif_shape[1]
+        if i_min < 0:
+            i_min = 0
+        if i_min > width:
+            raise BoundaryNotInTifError()
+        if j_min < 0:
+            j_min = 0
+        if j_min > height:
+            raise BoundaryNotInTifError()
+        if i_max > width:
+            i_max = width
+        if i_max < 0:
+            raise BoundaryNotInTifError()
+        if j_max > height:
+            j_max = height
+        if j_max < 0:
+            raise BoundaryNotInTifError()
+
         return ((i_min, j_min), (i_max, j_max))
 
     def get_bBox_wgs_84(
